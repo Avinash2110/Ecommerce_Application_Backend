@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 //using routes middlware
-app.use("/", userRoute);
+app.use("/api/v1", userRoute);
 
 
 
