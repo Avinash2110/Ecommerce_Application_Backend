@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const validator = require("validator");
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -9,7 +12,8 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, "Email is required"],
-        unique: [true, "Email should be unique"]
+        unique: true,
+        validate: [validator.isEmail, "Invalid Email Address"]
     },
     password: {
         type: String,
@@ -23,7 +27,7 @@ const userSchema = new mongoose.Schema({
             type: String
         }
     },
-    forPasswordToken:{
+    forgotPasswordToken:{
         type: String
     },
     forgotPasswordExpiry:{
@@ -42,10 +46,23 @@ userSchema.pre('save', async function(next){
     this.password = await bcrypt.hash(this.password, 10);
 })
 
-userSchema.methods.validatePassword = function(userPassword){
-    return bcrypt.compare(this.password, userPassword);
+userSchema.methods.validatePassword = async function(userPassword){
+    return await bcrypt.compare(this.password, userPassword);
 }
 
+userSchema.methods.getJwtToken = function(){
+    return jwt.sign({id: this._id}, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRY
+    })
+}
 
+userSchema.methods.setForgotPasswordToken = function(){
+    let forgotToken = crypto.randomBytes(20).toString("hex");
+    this.forgotPasswordToken = crypto.createHash('sha256').update(forgotToken).digest('hex');
+
+    this.forgotPasswordExpiry = Date.now() + 20*60*1000;
+    
+    return forgotToken;
+}
 
 module.exports = mongoose.model("User", userSchema);
