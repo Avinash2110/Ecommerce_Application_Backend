@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    role: {
+        type: String,
+        default: "user"
+    },
     photo: {
         id: {
             type: String
@@ -47,7 +51,7 @@ userSchema.pre('save', async function(next){
 })
 
 userSchema.methods.validatePassword = async function(userPassword){
-    return await bcrypt.compare(this.password, userPassword);
+    return await bcrypt.compare(userPassword, this.password);
 }
 
 userSchema.methods.getJwtToken = function(){
