@@ -1,6 +1,7 @@
 const User = require("../model/user");
 const fileUpload = require("express-fileupload");
 const cloudinary = require("cloudinary");
+const mailHelper = require("../util/mailHelper");
 
 exports.registerUser = async (req, res) =>{
     const {name, email, password} = req.body;
@@ -149,4 +150,63 @@ exports.logout = (req, res) =>{
         success: "true",
         message: "User logged out successfully"
     })
+}
+
+exports.forgotPassword = async (req, res) =>{
+    const {email} = req.body;
+    let user;
+    if(!email){
+        return res.status(400).json({
+            error: "Email is required"
+        })
+    }
+
+    try {
+        
+        user = await User.findOne({email});
+        if(!user){
+            return res.status(400).json({
+                error: "User does not exist"
+            })
+        }
+
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+
+    const forgotToken = user.getForgotPasswordToken();
+
+    try {
+        const options = {
+            email: email,
+            subject: "Ecommerce Application: Password Reset Mail",
+            text: `Please enter the token in the Reset password page. Token: ${forgotToken}`
+        }
+
+        let info = mailHelper(options);
+        await user.save({validateBeforeSave: false});
+
+        return res.json({
+            success: true,
+            message: "Email sent successfully",
+            info
+        })
+    } catch (err) {
+        return res.status(400).json({
+            error: "Not able to send email to the user"
+        })
+
+        user.forgotPasswordToken = undefined;
+        user.forgotPasswordExpiry = undefined;
+        await user.save({validateBeforeSave: false});
+    }
+
 }

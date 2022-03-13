@@ -60,7 +60,7 @@ userSchema.methods.getJwtToken = function(){
     })
 }
 
-userSchema.methods.setForgotPasswordToken = function(){
+userSchema.methods.getForgotPasswordToken = function(){
     let forgotToken = crypto.randomBytes(20).toString("hex");
     this.forgotPasswordToken = crypto.createHash('sha256').update(forgotToken).digest('hex');
 
