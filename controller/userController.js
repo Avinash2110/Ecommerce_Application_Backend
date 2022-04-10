@@ -2,6 +2,8 @@ const User = require("../model/user");
 const fileUpload = require("express-fileupload");
 const cloudinary = require("cloudinary");
 const mailHelper = require("../util/mailHelper");
+const crypto = require("crypto");
+const user = require("../model/user");
 
 exports.registerUser = async (req, res) =>{
     const {name, email, password} = req.body;
@@ -200,13 +202,78 @@ exports.forgotPassword = async (req, res) =>{
             info
         })
     } catch (err) {
-        return res.status(400).json({
-            error: "Not able to send email to the user"
-        })
 
         user.forgotPasswordToken = undefined;
         user.forgotPasswordExpiry = undefined;
         await user.save({validateBeforeSave: false});
+
+        return res.status(400).json({
+            error: "Not able to send email to the user"
+        })
     }
 
 }
+
+exports.resetPassword = async (req, res) =>{
+    let token = req.body.token;
+    let forgotPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    try {
+        
+        let user = await User.findOne({
+            forgotPasswordToken,
+            forgotPasswordExpiry: {$gt: Date.now()}
+        })
+
+        if(!user){
+            return res.status(400).json({
+                error: "Forgot password token invalid or expired"
+            })
+        }
+
+        if(!req.body.password || !req.body.confirmPassword){
+            return res.status(400).json({
+                error: "Password and Confirm password required"
+            })
+        }
+
+        if(req.body.password !== req.body.confirmPassword){
+            return res.status(400).json({
+                error: "Password and Confirm Password does not match"
+            })
+        }
+
+        user.password = req.body.password;
+        user.forgotPasswordToken = undefined;
+        user.forgotPasswordExpiry = undefined;
+
+        await user.save();
+
+        return res.json({
+            success: true,
+            message: "Password changed successfully",
+            user
+        })
+
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.getUserDetails = (req, res) =>{
+    const user = req.user;
+
+    user.password = undefined;
+
+    return res.json(user);
+}
+
+
