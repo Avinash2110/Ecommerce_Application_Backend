@@ -276,4 +276,40 @@ exports.getUserDetails = (req, res) =>{
     return res.json(user);
 }
 
+exports.changePassword = async (req, res) =>{
+    const userId = req.user.id;
+    try {
+        let user = await User.findById(userId);
+        if(!req.body.oldPassword || !req.body.password){
+            return res.status(400).json({
+                error: "Old password and new password are required"
+            })
+        }
+        if(!user.validatePassword(req.body.oldPassword)){
+            return res.status(401).json({
+                error: "Old password does not match with current password"
+            })
+        }
+
+        user.password = req.body.password;
+        const newUser = await user.save();
+        newUser.password = undefined;
+        return res.json({
+            success: true,
+            newUser
+        })
+
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
 
