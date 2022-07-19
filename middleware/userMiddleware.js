@@ -10,7 +10,16 @@ exports.isSignedIn = async (req, res, next) =>{
         })
     }
     const jwtToken = token.replace("Bearer ", "");
-    const decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET);
+
+    let decodedToken;
+    try{
+        decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET);
+    }
+    catch(err){
+        res.status(403).json({
+            error: err.message
+        })
+    }
 
     try {
 
@@ -34,5 +43,16 @@ exports.isSignedIn = async (req, res, next) =>{
         return res.status(400).json({
             error: err.errors[errorKeys[0]].message
         })
+    }
+}
+
+exports.customRole = (...role) =>{
+    return (req, res, next) =>{
+        if(!role.includes(req.user.role)){
+            return res.status(403).json({
+                error: `You don't have ${role[0]} access`
+            })
+        }
+        next();
     }
 }

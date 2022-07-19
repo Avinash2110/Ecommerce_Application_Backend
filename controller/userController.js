@@ -4,6 +4,7 @@ const cloudinary = require("cloudinary");
 const mailHelper = require("../util/mailHelper");
 const crypto = require("crypto");
 const user = require("../model/user");
+const { findById } = require("../model/user");
 
 exports.registerUser = async (req, res) =>{
     const {name, email, password} = req.body;
@@ -311,5 +312,224 @@ exports.changePassword = async (req, res) =>{
         })
     }
 }
+
+exports.updateUser = async (req, res) =>{
+    let userId = req.user.id;
+    let newUser;
+
+    try{
+        if(!req.files){
+            newUser = req.body;
+        }
+        else{
+            let file = req.files.photo;
+            let user = await User.findById(userId);
+            if(user.photo){
+                let image_id = user.photo.id;
+                await cloudinary.v2.uploader.destroy(image_id);
+                
+            }
+
+            const image_result = await cloudinary.v2.uploader.upload(file.tempFilePath, {
+                folder: "users",
+                width: 250,
+                crop: "scale"
+            })
+            if(!image_result){
+                return res.status(403).json({
+                    error: "Some issue with image"
+                })
+            }
+
+            req.body.photo.id = image_result.public_id;
+            req.body.phtot.secure_url = image_result.secure_url;
+            newUser = new User(req.body);
+
+            
+        }
+
+        let responseUser = await User.findByIdAndUpdate(userId, newUser, {
+            new: true,
+            runValidators: true,
+            useFindAndModify: false
+        })
+
+        responseUser.password = undefined;
+
+        return res.json(
+            responseUser
+        )
+    }
+    catch(err){
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.adminGetUser = async (req, res) => {
+    try {
+        
+        let users =  await User.find();
+        if(!users){
+            return res.status(403).json({
+                error: "No user exists"
+            })
+        }
+        return res.status(200).json({
+            sucess: true,
+            users
+        });
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.managerGetUser = async (req, res) => {
+    try {
+        
+        let users =  await User.find({role: "user"});
+        if(!users){
+            return res.status(403).json({
+                error: "No user exists"
+            })
+        }
+        return res.status(200).json({
+            sucess: true,
+            users
+        });
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.getUserById = async (req, res) =>{
+    let userId = req.params.id;
+    try {
+        let user = await User.findById(userId);
+        if(!user){
+            return res.status(403).json({
+                error: "User with the given id does not exist"
+            })
+        }
+        return res.status(200).json({
+            success: true,
+            user
+        })
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.adminUpdateUserById = async (req, res) =>{
+    const userId = req.params.id;
+    try {
+
+        let user = await User.findById(userId);
+        if(!user){
+            return res.status(403).json({
+                error: "User does not exist"
+            })
+        }
+
+        const newUser = req.body;
+
+        let updatedUser = await User.findByIdAndUpdate(userId, newUser, {
+            new: true,
+            runValidators: true,
+            useFindAndModify: false
+        })
+
+        if(!updatedUser){
+            return res.status(403).json({
+                error: "Not able to update user"
+            })
+        }
+
+        updatedUser.password = undefined;
+        return res.status(200).json({
+            success: true,
+            updatedUser
+        })
+
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+exports.adminRemoveUserById = async (req, res) => {
+    let userId = req.params.id;
+    try {
+        
+        let user = await User.findById(userId);
+        if(!user){
+            return res.status(403).json({
+                error: "User does not exist"
+            })
+        }
+
+        if(user.photo){
+            let photoId = user.photo.id;
+            await cloudinary.v2.uploader.destroy(photoId);
+        }
+
+        await User.findByIdAndDelete(userId);
+
+        return res.status(200).json({
+            success: true
+        })
+
+    } catch (err) {
+        if(Object.keys(err)==0){
+            return res.status(400).json({
+                error: "Some error occured"
+            })
+        }
+        const errorKeys = Object.keys(err.errors);
+        return res.status(400).json({
+            error: err.errors[errorKeys[0]].message
+        })
+    }
+}
+
+
 
 
